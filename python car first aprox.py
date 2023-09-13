@@ -10,12 +10,12 @@ width = 21
 height = 21
 centerx = round(width / 2)
 centery = round(height / 2)
+
 #make rad similar to centerx and centery
 rad = 9
 epsilon = 2.5
+
 #first create map with all 0 (outside the road)
-
-
 road = np.empty([width, height])
 
 # draw the circle. 1 if its part of the road. 0 if it is not part of the road
@@ -30,8 +30,6 @@ for y in range(height):
 # print the map
 print(road)
 
-
-
 # -----------------------CAR-------------------
 
 # parameters
@@ -44,11 +42,11 @@ maxcount = 5 #how many steps before calculating dist traveled
 weightdist = 1 #how important is dist traveled for fitness
 weightroad = -0.1 #how important is being on road for fitness
 
-
 # initial conditions
 posi =  [(width - D) / 2, rad] 
 veli =  [0,0] 
 anglei = 0
+
 
 class Car:
 
@@ -112,23 +110,18 @@ class Car:
 #Neural Network Class
 class NN():
 
-    def __init__(self,sizes,norm):
+    def __init__(self,sizes):
         self.sizes = sizes
         self.layers = []
-        self.norm = norm
         for i in range(len(self.sizes)-1):
-            if self.norm:
-                self.layers.append(FCL(sizes[i],sizes[i+1],False))
-            else:
-                self.layers.append(FCL(sizes[i],sizes[i+1],True))
+                self.layers.append(FCL(sizes[i],sizes[i+1]))
         
-
     #predicts 
     def predict(self,inp):
         for layer in self.layers:
-            layer.out = layer.weights.dot(layer.inp)+layer.biases
-            if layer.norm:
-                layer.out = np.tanh(layer.out)
+            layer.inp = inp
+            layer.out = np.tanh(layer.weights.dot(layer.inp)+layer.biases)
+            inp = layer.out
 
         return layer.out   
 
@@ -136,17 +129,15 @@ class NN():
 class FCL():
 
     #initialized with random biases and weights
-    def __init__(self,in_size,out_size,norm):
-        self.norm = norm
+    def __init__(self,in_size,out_size):
         self.inp = np.zeros(in_size)
         self.out = np.zeros(out_size)
         self.weights = np.random.rand(out_size,in_size)
-        self.biases = np.random.rand(out_size)
+        self.biases = np.random.rand(out_size)/10
 
 #creating and testing the neural network, later it can be deleted it is here to show example
-
-neural_net = NN([5,5,2],[0,0,1])
-print(neural_net.predict(np.array([1,0,4])))
+neural_net = NN([5,6,2])
+print(neural_net.predict(np.array([0.2,0,0.5,0,0])))
 
 
 # what prof told me: have acc and vel for wheels. 
