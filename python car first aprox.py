@@ -1,6 +1,10 @@
 import numpy as np
 import math
 
+
+
+# -----------------ROAD------------------
+
 width = 21
 height = 21
 centerx = round(width / 2)
@@ -12,7 +16,6 @@ epsilon = 2.5
 
 
 road = np.empty([width, height])
-
 
 # draw the circle. 1 if its part of the road. 0 if it is not part of the road
 for y in range(height):
@@ -28,7 +31,17 @@ print(road)
 
 
 
-# -----------------------CAR----
+# -----------------------CAR-------------------
+
+# parameters
+velpen = 0.5
+dt = 0.01
+# D is the size of the car
+D = 1
+#parameters for Fitness
+maxcount = 5 #how many steps before calculating dist traveled
+weightdist = 1 #how important is dist traveled for fitness
+weightroad = -0.1 #how important is being on road for fitness
 
 
 # initial conditions
@@ -36,26 +49,23 @@ posi =  [(width - D) / 2, rad]
 veli =  [0,0] 
 anglei = 0
 
-# parameters
-velpen = 0.5
-dt = 0.01
-# D is the size of the car
-D = 1
-
 class Car:
     def __init__(self):
         #for each car
         self.pos = posi
         self.vel = veli
         self.angle = 0
-        # w is the derivative of angle with respect to time
-        self.w = 0
+        self.w = 0 # w is the derivative of angle with respect to time
         
         #for each car's wheels
-        #each wheel has a scalar number which indicates its speed. the first number is for left wheel and second for right wheel
+        #each wheel has a scalar number which indicates its speed and acc. the first number is for left wheel and second for right wheel
         self.wheelvel = [0 , 0]
-        #same for acc
         self.wheelacc = [0,0]
+
+        #for fitness
+        self.count = 0
+        self.fitness = 0
+        self.savedpos = posi
 
     def actualize(self):  
 
@@ -79,6 +89,17 @@ class Car:
         # euler for position
         self.pos += self.vel * dt
 
+    def calcFitness(self):
+        #calc fitness should be called together with actualize
+        #every maxcount steps it calculates how much distance it traveled and saves a new position as starting point
+        if self.count == maxcount:
+            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos )
+            self.savedpos = self.pos
+        count += 1
+
+        if not self.onRoad():
+            self.fitness += weightroad
+
 
 # this should return the same value as the value of the road at that point (a 0 (or false) if outside the road and viceversa)
     def onRoad(self):
@@ -88,6 +109,11 @@ class Car:
 # what prof told me: have acc and vel for wheels. 
 # have (angle, pos, vel) for car. then, vel car is the average. w = v2 - v1 / (D/2) (grego: it is / D). angle += w . dt
 # so, having vel and angle for the car, we calculate vector velocity for car. we integrate using euler method
+
+# for the fitness. we should measure distance traveled every n steps (n = 5) 
+# using distances greater than D to prevent giving high fitness to cars rotating.
+# also take into considerantion if the car is on or outside the road.
+
 
 # for the fitness. we should measure distance traveled every n steps (n = 5) 
 # using distances greater than D to prevent giving high fitness to cars rotating.
