@@ -132,8 +132,8 @@ class FCL():
     def __init__(self,in_size,out_size):
         self.inp = np.zeros(in_size)
         self.out = np.zeros(out_size)
-        self.weights = np.random.rand(out_size,in_size)
-        self.biases = np.random.rand(out_size)/10
+        self.weights = np.random.rand(out_size,in_size)*2-1
+        self.biases = np.random.rand(out_size)*2-1
 
 #creating and testing the neural network, later it can be deleted it is here to show example
 neural_net = NN([5,6,2])
