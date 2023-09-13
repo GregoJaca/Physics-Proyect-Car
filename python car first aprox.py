@@ -34,7 +34,7 @@ print(road)
 # -----------------------CAR-------------------
 
 # parameters
-velpen = 0.5
+velpen = 0.8 #if outside the road, it reduces the speed by 20%
 dt = 0.01
 # D is the size of the car
 D = 1
@@ -75,7 +75,6 @@ class Car:
         self.wheelvel += self.wheelacc * dt
 
         #euler for angle
-
         self.w = (self.wheelvel[0] + self.wheelvel[1]) / D
         self.angle += self.w * dt
 
