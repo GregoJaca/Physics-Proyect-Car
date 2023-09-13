@@ -114,8 +114,3 @@ class Car:
 # using distances greater than D to prevent giving high fitness to cars rotating.
 # also take into considerantion if the car is on or outside the road.
 
-
-# for the fitness. we should measure distance traveled every n steps (n = 5) 
-# using distances greater than D to prevent giving high fitness to cars rotating.
-# also take into considerantion if the car is on or outside the road.
-
