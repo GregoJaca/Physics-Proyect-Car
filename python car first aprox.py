@@ -51,6 +51,7 @@ veli =  [0,0]
 anglei = 0
 
 class Car:
+
     def __init__(self):
         #for each car
         self.pos = posi
@@ -67,6 +68,9 @@ class Car:
         self.count = 0
         self.fitness = 0
         self.savedpos = posi
+
+        #cars NN
+        self.NN = NN([5,6,2])
 
     def actualize(self):  
 
@@ -100,10 +104,49 @@ class Car:
         if not self.onRoad():
             self.fitness += weightroad
 
-
 # this should return the same value as the value of the road at that point (a 0 (or false) if outside the road and viceversa)
     def onRoad(self):
         return road[self.pos]
+    
+
+#Neural Network Class
+class NN():
+
+    def __init__(self,sizes,norm):
+        self.sizes = sizes
+        self.layers = []
+        self.norm = norm
+        for i in range(len(self.sizes)-1):
+            if self.norm:
+                self.layers.append(FCL(sizes[i],sizes[i+1],False))
+            else:
+                self.layers.append(FCL(sizes[i],sizes[i+1],True))
+        
+
+    #predicts 
+    def predict(self,inp):
+        for layer in self.layers:
+            layer.out = layer.weights.dot(layer.inp)+layer.biases
+            if layer.norm:
+                layer.out = np.tanh(layer.out)
+
+        return layer.out   
+
+#Class of a NN layer
+class FCL():
+
+    #initialized with random biases and weights
+    def __init__(self,in_size,out_size,norm):
+        self.norm = norm
+        self.inp = np.zeros(in_size)
+        self.out = np.zeros(out_size)
+        self.weights = np.random.rand(out_size,in_size)
+        self.biases = np.random.rand(out_size)
+
+#creating and testing the neural network, later it can be deleted it is here to show example
+
+neural_net = NN([5,5,2],[0,0,1])
+print(neural_net.predict(np.array([1,0,4])))
 
 
 # what prof told me: have acc and vel for wheels. 
