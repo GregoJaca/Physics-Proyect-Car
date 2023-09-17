@@ -2,10 +2,10 @@ import numpy as np
 import math
 import pygame
 
-
+#________________GLOBAL_VAR_____________
+new_gen_n = 50
 
 # -----------------ROAD------------------
-
 width = 21
 height = 21
 centerx = round(width / 2)
@@ -108,7 +108,7 @@ class Car:
     
 
 #Neural Network Class
-class NN():
+class NN:
 
     def __init__(self,sizes):
         self.sizes = sizes
@@ -126,7 +126,7 @@ class NN():
         return layer.out   
 
 #Class of a NN layer
-class FCL():
+class FCL:
 
     #initialized with random biases and weights
     def __init__(self,in_size,out_size):
@@ -134,6 +134,33 @@ class FCL():
         self.out = np.zeros(out_size)
         self.weights = np.random.rand(out_size,in_size)*2-1
         self.biases = np.random.rand(out_size)*2-1
+
+#GENETIC_ALGORITHM_FUNCTIONS_________________________________________________________________________-
+
+#list of cars as the parameter
+def selection(population):
+    fitness_arr = []
+    new_gen = []
+    total_fitness = 0
+
+    for car in population:
+        fitness_arr.append(car.fitness)
+        total_fitness += car.fitness
+
+    for i in range(new_gen_n):
+        random_num = np.random.randint(total_fitness)
+        index = -1
+        i = 0
+        while(index < random_num):
+            index += fitness_arr[i]
+            i += 1
+        new_gen.append(population[i])
+
+    return new_gen
+    #in process
+
+def give_birth(): #I had to name it this
+    return
 
 #creating and testing the neural network, later it can be deleted it is here to show example
 neural_net = NN([5,6,2])
