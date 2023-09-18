@@ -3,7 +3,9 @@ import math
 import pygame
 
 #________________GLOBAL_VAR_____________
-new_gen_n = 50
+population_n = 10
+selection_n = 5
+nn_size = [5,6,2]
 
 # -----------------ROAD------------------
 width = 21
@@ -139,32 +141,45 @@ class FCL:
 
 #list of cars as the parameter
 def selection(population):
-    fitness_arr = []
-    new_gen = []
-    total_fitness = 0
 
-    for car in population:
-        fitness_arr.append(car.fitness)
-        total_fitness += car.fitness
+    fitness_arr = np.zeros(population_n)
+    parents = np.zeros(population_n)
 
-    for i in range(new_gen_n):
-        random_num = np.random.randint(total_fitness)
-        index = -1
-        i = 0
-        while(index < random_num):
-            index += fitness_arr[i]
-            i += 1
-        new_gen.append(population[i])
+    for i in range(population_n):
+        fitness_arr[i] = population[i].fitness
+
+    random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
+    
+    for i in range(population_n):
+        parents[i] = population[random_choices[i % selection_n]]
+
+    return parents
+
+
+def give_birth(parents, mutation_rate): #I had to name it this
+
+    new_gen = np.zeros(population_n)
+    layers_n = len(nn_size)
+
+
+    for i in range(population_n):
+        baby = Car()
+        for j in range(layers_n-1):
+            weight_genes = np.random.randint(2,size = (nn_size[j+1],nn_size[j]))
+            weight_mutation = [] #must finish
+            bias_genes = np.random.randint(2,size = nn_size[j+1])
+            bias_mutation = [] #must finish
+            baby.NN.layers[j].weights = np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones(nn_size[j+1], nn_size[j]) - weight_genes)
+            baby.NN.layers[j].biases = np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes)
+        new_gen[i] = baby
+
 
     return new_gen
-    #in process
-
-def give_birth(): #I had to name it this
-    return
 
 #creating and testing the neural network, later it can be deleted it is here to show example
-neural_net = NN([5,6,2])
+neural_net = NN(nn_size)
 print(neural_net.predict(np.array([0.2,0,0.5,0,0])))
+print(selection([1,5,7,3,4,1,5,7,3,4]))
 
 
 # what prof told me: have acc and vel for wheels. 
