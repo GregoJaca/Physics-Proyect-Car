@@ -1,6 +1,6 @@
 import numpy as np
 import math
-import pygame
+# import pygame
 
 #________________GLOBAL_VAR_____________
 population_n = 10
@@ -39,6 +39,10 @@ velpen = 0.8 #if outside the road, it reduces the speed by 20%
 dt = 0.01
 # D is the size of the car
 D = 1
+#how far away it can see
+sightdist = 3 * D
+#number of eyes. minumum 3
+numeyes = 5
 #parameters for Fitness
 maxcount = 5 #how many steps before calculating dist traveled
 weightdist = 1 #how important is dist traveled for fitness
@@ -70,7 +74,7 @@ class Car:
         self.savedpos = posi
 
         #cars NN
-        self.NN = NN([5,6,2])
+        self.NN = NN([numeyes,6,2])
 
     def actualize(self):  
 
@@ -84,7 +88,7 @@ class Car:
         self.angle += self.w * dt
 
         #vel of the car is the average of both wheels velocity (and multiplied by the unit vector with the angle of the car)
-        self.vel = ( (self.wheelvel[0] + self.wheelvel[1]) / 2 ) * [math.cos(self.angle), math.sin(self.angle) ]
+        self.vel = ( np.linalg.norm(self.wheelvel[0] + self.wheelvel[1]) / 2 ) * [math.cos(self.angle), math.sin(self.angle) ]
 
         #Here if that wheel is outside the road, we make the vel smaller as punishment
         if not self.onRoad():
@@ -103,10 +107,21 @@ class Car:
 
         if not self.onRoad():
             self.fitness += weightroad
+    
+    #as input it gets which eye is looking, and returns an array with the values of the road in that direction
+    #when you call the function you should call it in a loop for i in range(numeyes)
+    def see(self, eye): 
+        direction = self.angle - math.pi / 2 + eye * math.pi / numeyes
+        view = []
+        for i in sightdist:
+            view.append(road[ np.round_( self.pos + i *  [math.cos(direction), math.sin(direction) ] ) ])
+
+        return view
+
 
 # this should return the same value as the value of the road at that point (a 0 (or false) if outside the road and viceversa)
     def onRoad(self):
-        return road[self.pos]
+        return road[ np.round_(self.pos) ] #pos can be a float, but to check
     
 
 #Neural Network Class
@@ -189,4 +204,3 @@ print(selection([1,5,7,3,4,1,5,7,3,4]))
 # for the fitness. we should measure distance traveled every n steps (n = 5) 
 # using distances greater than D to prevent giving high fitness to cars rotating.
 # also take into considerantion if the car is on or outside the road.
-
