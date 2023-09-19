@@ -1,11 +1,22 @@
 import numpy as np
 import math
-# import pygame
+import pygame
+from pygame.locals import *
+import sys
 
 #________________GLOBAL_VAR_____________
 population_n = 10
 selection_n = 5
 nn_size = [5,6,2]
+
+#________________PYGAME_VARS____________
+grey = pygame.Color(100,100,100)
+black = pygame.Color(0,0,0)
+white = pygame.Color(255,255,255)
+green = pygame.Color(0,100,0)
+
+window_width = 1200
+window_height = 600
 
 # -----------------ROAD------------------
 width = 21
@@ -194,7 +205,28 @@ def give_birth(parents, mutation_rate): #I had to name it this
 #creating and testing the neural network, later it can be deleted it is here to show example
 neural_net = NN(nn_size)
 print(neural_net.predict(np.array([0.2,0,0.5,0,0])))
-print(selection([1,5,7,3,4,1,5,7,3,4]))
+
+#pygame initialization
+pygame.init()
+DISPLAYSURF = pygame.display.set_mode((window_width,window_height))
+DISPLAYSURF.fill(green)
+
+FPS = pygame.time.Clock()
+FPS.tick(60)
+
+#main loop
+while True:
+
+    #exit
+    for event in pygame.event.get():
+        if event.type == QUIT:
+            pygame.quit()
+            sys.exit()
+
+    pygame.display.update()
+
+
+
 
 
 # what prof told me: have acc and vel for wheels. 
