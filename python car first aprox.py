@@ -9,6 +9,8 @@ population_n = 10
 selection_n = 5
 nn_size = [5,6,2]
 
+population = np.array(population_n)
+
 #________________PYGAME_VARS____________
 grey = pygame.Color(100,100,100)
 black = pygame.Color(0,0,0)
@@ -222,6 +224,11 @@ while True:
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
+    
+    DISPLAYSURF.fill(green)
+
+    
+
 
     pygame.display.update()
 
