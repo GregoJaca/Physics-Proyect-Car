@@ -30,7 +30,7 @@ centery = round(height / 2)
 rad = 9
 epsilon = 2.5
 
-#first create map with all 0 (outside the road)
+#first create empty map
 road = np.empty([width, height])
 
 # draw the circle. 1 if its part of the road. 0 if it is not part of the road
@@ -48,6 +48,7 @@ print(road)
 # -----------------------CAR-------------------
 
 # parameters
+
 velpen = 0.8 #if outside the road, it reduces the speed by 20%
 dt = 0.01
 # D is the size of the car
@@ -101,7 +102,7 @@ class Car:
         self.angle += self.w * dt
 
         #vel of the car is the average of both wheels velocity (and multiplied by the unit vector with the angle of the car)
-        self.vel = ( np.linalg.norm(self.wheelvel[0] + self.wheelvel[1]) / 2 ) * [math.cos(self.angle), math.sin(self.angle) ]
+        self.vel = ( (self.wheelvel[0] + self.wheelvel[1]) / 2 ) * [math.cos(self.angle), math.sin(self.angle) ]
 
         #Here if that wheel is outside the road, we make the vel smaller as punishment
         if not self.onRoad():
@@ -116,7 +117,7 @@ class Car:
         if self.count == maxcount:
             self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos )
             self.savedpos = self.pos
-        count += 1
+        swlf.count += 1
 
         if not self.onRoad():
             self.fitness += weightroad
@@ -134,7 +135,7 @@ class Car:
 
 # this should return the same value as the value of the road at that point (a 0 (or false) if outside the road and viceversa)
     def onRoad(self):
-        return road[ np.round_(self.pos) ] #pos can be a float, but to check
+        return road[ np.round_(self.pos) ] #pos can be a float, but to check we round
     
 
 #Neural Network Class
