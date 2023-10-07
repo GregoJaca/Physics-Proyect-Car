@@ -117,7 +117,7 @@ class Car:
         if self.count == maxcount:
             self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos )
             self.savedpos = self.pos
-        swlf.count += 1
+        self.count += 1
 
         if not self.onRoad():
             self.fitness += weightroad
