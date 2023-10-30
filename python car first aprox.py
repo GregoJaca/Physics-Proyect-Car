@@ -129,7 +129,7 @@ class Car:
         direction = self.angle - math.pi / 2 + eye * math.pi / (numeyes-1)
         view = []
         for i in sightdist:
-            view.append( road[ round( self.pos[0] + math.cos(direction) * i ) , round( self.pos[1] +  math.sin(direction) *i) ] )
+            view.append( round(road[ round( self.pos[0] + math.cos(direction) * i ) , round( self.pos[1] +  math.sin(direction) *i) ]) )
 
         return view
 
