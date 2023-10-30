@@ -63,8 +63,8 @@ weightdist = 1 #how important is dist traveled for fitness
 weightroad = -0.1 #how important is being on road for fitness
 
 # initial conditions
-posi =  [(width - D) / 2, rad] 
-veli =  [0,0] 
+posi =  np.array([(width - D) / 2, rad] )
+veli =  np.array([0,0] )
 anglei = 0
 
 
@@ -79,9 +79,9 @@ class Car:
         
         #for each car's wheels
         #each wheel has a scalar number which indicates its speed and acc. the first number is for left wheel and second for right wheel
-        self.wheelvel = [0 , 0]
-        self.wheelacc = [0,0]
-
+        self.wheelvel = np.array([0,0])
+        self.wheelacc = np.array([0,0]
+)
         #for fitness
         self.count = 0
         self.fitness = 0
@@ -95,21 +95,21 @@ class Car:
         #euler method of integration.
 
         #wheelacc should be calculated by the neural network
-        self.wheelvel += self.wheelacc * dt
+        self.wheelvel = self.wheelvel + self.wheelacc * dt
 
         #euler for angle
         self.w = (self.wheelvel[0] + self.wheelvel[1]) / D
-        self.angle += self.w * dt
+        self.angle = self.angle + self.w * dt
 
         #vel of the car is the average of both wheels velocity (and multiplied by the unit vector with the angle of the car)
-        self.vel = ( (self.wheelvel[0] + self.wheelvel[1]) / 2 ) * [math.cos(self.angle), math.sin(self.angle) ]
+        self.vel = ( (self.wheelvel[0] + self.wheelvel[1]) / 2 ) * np.array( [math.cos(self.angle), math.sin(self.angle)] )
 
         #Here if that wheel is outside the road, we make the vel smaller as punishment
         if not self.onRoad():
             self.vel *= velpen
 
         # euler for position
-        self.pos += self.vel * dt
+        self.pos = self.pos + self.vel * dt
 
     def calcFitness(self):
         #calc fitness should be called together with actualize
@@ -117,6 +117,7 @@ class Car:
         if self.count == maxcount:
             self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos )
             self.savedpos = self.pos
+            self.count = 0
         self.count += 1
 
         if not self.onRoad():
@@ -125,17 +126,17 @@ class Car:
     #as input it gets which eye is looking, and returns an array with the values of the road in that direction
     #when you call the function you should call it in a loop for i in range(numeyes)
     def see(self, eye): 
-        direction = self.angle - math.pi / 2 + eye * math.pi / numeyes
+        direction = self.angle - math.pi / 2 + eye * math.pi / (numeyes-1)
         view = []
         for i in sightdist:
-            view.append(road[ np.round_( self.pos + i *  [math.cos(direction), math.sin(direction) ] ) ])
+            view.append( road[ round( self.pos[0] + math.cos(direction) * i ) , round( self.pos[1] +  math.sin(direction) *i) ] )
 
         return view
 
 
 # this should return the same value as the value of the road at that point (a 0 (or false) if outside the road and viceversa)
     def onRoad(self):
-        return road[ np.round_(self.pos) ] #pos can be a float, but to check we round
+        return road[ round(self.pos[0]) , round(self.pos[1]) ] #pos can be a float, but to check we round
     
 
 #Neural Network Class
@@ -228,19 +229,7 @@ while True:
     
     DISPLAYSURF.fill(green)
 
-    
-
 
     pygame.display.update()
 
 
-
-
-
-# what prof told me: have acc and vel for wheels. 
-# have (angle, pos, vel) for car. then, vel car is the average. w = v2 - v1 / (D/2) (grego: it is / D). angle += w . dt
-# so, having vel and angle for the car, we calculate vector velocity for car. we integrate using euler method
-
-# for the fitness. we should measure distance traveled every n steps (n = 5) 
-# using distances greater than D to prevent giving high fitness to cars rotating.
-# also take into considerantion if the car is on or outside the road.
