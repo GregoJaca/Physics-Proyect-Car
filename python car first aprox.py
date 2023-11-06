@@ -12,13 +12,14 @@ nn_size = [5,6,2]
 population = np.array(population_n)
 
 #________________PYGAME_VARS____________
+HEIGHT = 600
+WIDTH = 1000
+FPS = 60
+
 grey = pygame.Color(100,100,100)
 black = pygame.Color(0,0,0)
 white = pygame.Color(255,255,255)
 green = pygame.Color(0,100,0)
-
-window_width = 1200
-window_height = 600
 
 # -----------------ROAD------------------
 width = 21
@@ -68,7 +69,7 @@ veli =  np.array([0,0] )
 anglei = 0
 
 
-class Car:
+class Car(pygame.sprite.Sprite):
 
     def __init__(self):
         #for each car
@@ -212,11 +213,13 @@ print(neural_net.predict(np.array([0.2,0,0.5,0,0])))
 
 #pygame initialization
 pygame.init()
-DISPLAYSURF = pygame.display.set_mode((window_width,window_height))
-DISPLAYSURF.fill(green)
+FramePerSec = pygame.time.Clock()
+ 
+displaysurface = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Game")
 
-FPS = pygame.time.Clock()
-FPS.tick(60)
+all_sprites = pygame.sprite.Group()
+
 
 #main loop
 while True:
@@ -227,9 +230,12 @@ while True:
             pygame.quit()
             sys.exit()
     
-    DISPLAYSURF.fill(green)
+    displaysurface.fill(green)
 
+    for entity in all_sprites:
+        displaysurface.blit(entity.surf, entity.rect)
 
     pygame.display.update()
+    FramePerSec.tick(FPS)
 
 
