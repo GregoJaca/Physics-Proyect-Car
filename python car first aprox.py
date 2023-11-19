@@ -8,7 +8,7 @@ from PIL import Image
 #________________GLOBAL_VAR_____________
 population_n = 100
 selection_n = 60 # min 50
-mutation_rate = 0
+mutation_rate = 0.5
 
 population = []
 
@@ -74,7 +74,7 @@ class Car(pygame.sprite.Sprite):
     def __init__(self):
         #for each car
         super().__init__() 
-        self.surf = pygame.Surface((car_size, car_size+10), pygame.SRCALPHA)
+        self.surf = pygame.Surface((car_size, car_size), pygame.SRCALPHA)
         self.orig_surf = self.surf
         self.surf.fill((128,255,40))
         self.rect = self.surf.get_rect(center = (posi[0], posi[1]))
@@ -256,12 +256,12 @@ def give_birth(parents): #I had to name it this
                 a = np.random.binomial(1 , nn_size[j+1] / nn_size[j])
                 if a == 1:
                     #only one biases is changed
-                    baby.layers[j].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
+                    baby.NN.layers[j].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
                     #all biases are changed
                     #baby.layers[j].biases = np.random.rand(nn_size[j+1])
                 else:
                     #only one weight is changed
-                    baby.layers[j].weights[ np.random.choice(nn_size[j]) ] = np.random.rand() * 2 - 1
+                    baby.NN.layers[j].weights[ np.random.choice(nn_size[j]) ] = np.random.rand() * 2 - 1
                     #all weights are changed
                     #baby.layers[j].weights = np.random.rand(nn_size[j])
         
