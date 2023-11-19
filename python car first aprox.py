@@ -298,7 +298,7 @@ def give_birth(parents): #I had to name it this
 
 def mutate(population):
 
-    mut_number_avg = 50
+    mut_number_avg = 50 #this should be a Global variable. I just wrote it here to be clear. Then I'll move it.
     mut_number = np.random.binomial(mut_number_avg * 2 , 0.5)
 
     for i in range(mut_number):
