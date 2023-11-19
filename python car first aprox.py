@@ -239,16 +239,54 @@ def give_birth(parents): #I had to name it this
     new_gen = []
     layers_n = len(nn_size)
 
+    
+    #baby creation
     for i in range(population_n):
         baby = Car()
         for j in range(layers_n-1):
             weight_genes = np.random.randint(2,size = (nn_size[j+1],nn_size[j]))
             bias_genes = np.random.randint(2,size = nn_size[j+1])
-            baby.NN.layers[j].weights = np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones((nn_size[j+1], nn_size[j])) - weight_genes)
-            baby.NN.layers[j].biases = np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes)
-        new_gen.append(baby)
+            baby.NN.layers[j].weights = (np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones((nn_size[j+1], nn_size[j])) - weight_genes))
+            baby.NN.layers[j].biases = (np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes))
 
+            # Mutating. We either use this or the mutate() function
+            # this has the limitation that it can only modify one "gene" of each individual
+            # using the mutate() function, the same individual could be picked many times and get many genes modified
+            if np.random.rand() < mutation_rate:
+                a = np.random.binomial(1 , nn_size[j+1] / nn_size[j])
+                if a == 1:
+                    #only one biases is changed
+                    baby.layers[j].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
+                    #all biases are changed
+                    #baby.layers[j].biases = np.random.rand(nn_size[j+1])
+                else:
+                    #only one weight is changed
+                    baby.layers[j].weights[ np.random.choice(nn_size[j]) ] = np.random.rand() * 2 - 1
+                    #all weights are changed
+                    #baby.layers[j].weights = np.random.rand(nn_size[j])
+        
+        new_gen.append(baby) 
+        
     return new_gen
+
+
+def mutate(population):
+
+    mut_number_avg = 50 #this should be a Global variable. I just wrote it here to be clear. Then I'll move it.
+    mut_number = np.random.binomial(mut_number_avg * 2 , 0.5)
+
+    for i in range(mut_number):
+        mut_ind = np.random.choice(population_n)
+        mut_layer = np.random.choice( len(nn_size) )
+
+        if np.random.binomial(1 , nn_size[1] / nn_size[0]) == 1:
+            #mutate biases
+            population[mut_ind].layers[mut_layer].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
+        else: 
+            #mutate weights
+            population[mut_ind].layers[mut_layer].weights[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
+            
+    return population
 
 #creating population #1 for testing
 for i in range(population_n):
@@ -297,7 +335,10 @@ while True:
     pressed_keys = pygame.key.get_pressed()
     if pressed_keys[K_SPACE]:
         population = give_birth(selection(population))
-        print(len(population))
+        # population = mutate(population)
+        displaysurface.fill(green)
+        displaysurface.blit(race_track,(0,0))
+        displaysurface.blit(entity.surf, entity.rect)
         for entity in all_sprites:
             entity.kill()
         for i in range(population_n):
