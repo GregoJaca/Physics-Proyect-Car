@@ -7,8 +7,8 @@ from PIL import Image
 
 #________________GLOBAL_VAR_____________
 population_n = 100
-selection_n = 40
-mutation_rate = 0.1
+selection_n = 60 # min 50
+mutation_rate = 0
 
 population = []
 
@@ -35,37 +35,12 @@ for i in range(HEIGHT):
         else:
             road[i][j] = -1
     
-for i in range(len(road[200])):
-    print(road[200][i])
-""" width = 21
-height = 21
-centerx = round(width / 2)
-centery = round(height / 2)
-
-#make rad similar to centerx and centery
-rad = 9
-epsilon = 2.5
-
-#first create empty map
-road = np.empty([width, height])
-
-# draw the circle. 1 if its part of the road. 0 if it is not part of the road
-for y in range(height):
-    for x in range(width):
-        # see if we're close to (x-a)**2 + (y-b)**2 == r**2
-        if abs((x - centerx)**2 + (y - centery)**2 - rad**2) < epsilon**2:
-            road[y][x] = 1
-        else:
-            road[y][x] = 0
-
-# print the map
-print(road) """
 
 # -----------------------CAR-------------------
 
 # parameters
 
-velpen = 0.6 #if outside the road, it reduces the speed by 40%
+velpen = 0.1 #if outside the road, it reduces the speed by 90%
 dt = 0.1
 car_size = 13
 #how far away it can see
@@ -78,20 +53,20 @@ numeyes = 5
 nn_size = [numeyes*sightnum,2]
 
 #max speed
-max_speed = 50
-max_truning_speed = 1
-acc_multiplier = 3
+max_speed = 10
+max_truning_speed = 0.5
+acc_multiplier = 5
 
 
 #parameters for Fitness
-maxcount = 50 #how many steps before calculating dist traveled
+maxcount = 100 #how many steps before calculating dist traveled
 weightdist = 1 #how important is dist traveled for fitness
-weightroad = -1 #how important is being on road for fitness
+weightroad = -25 #how important is being on road for fitness
 
 # initial conditions
 posi =  np.array([125,465] )
 veli =  np.array([0,0] )
-anglei = 180
+anglei = 0
 
 
 class Car(pygame.sprite.Sprite):
@@ -99,7 +74,7 @@ class Car(pygame.sprite.Sprite):
     def __init__(self):
         #for each car
         super().__init__() 
-        self.surf = pygame.Surface((car_size, car_size), pygame.SRCALPHA)
+        self.surf = pygame.Surface((car_size, car_size+10), pygame.SRCALPHA)
         self.orig_surf = self.surf
         self.surf.fill((128,255,40))
         self.rect = self.surf.get_rect(center = (posi[0], posi[1]))
@@ -184,7 +159,6 @@ class Car(pygame.sprite.Sprite):
 
         if self.onRoad() != 1:
             self.fitness += weightroad
-    
     #as input it gets which eye is looking, and returns an array with the values of the road in that direction
     #when you call the function you should call it in a loop for i in range(numeyes)
     def see(self): 
@@ -269,14 +243,10 @@ def give_birth(parents): #I had to name it this
         baby = Car()
         for j in range(layers_n-1):
             weight_genes = np.random.randint(2,size = (nn_size[j+1],nn_size[j]))
-            weight_mutation = np.ones((nn_size[j+1], nn_size[j])) + np.random.rand(nn_size[j+1], nn_size[j])*2*mutation_rate - mutation_rate
             bias_genes = np.random.randint(2,size = nn_size[j+1])
-            bias_mutation = np.ones(nn_size[j+1]) + np.random.rand(nn_size[j+1])*2*mutation_rate - mutation_rate
-            print(bias_mutation)
-            baby.NN.layers[j].weights = (np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones((nn_size[j+1], nn_size[j])) - weight_genes))*weight_mutation
-            baby.NN.layers[j].biases = (np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes))*bias_mutation
+            baby.NN.layers[j].weights = np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones((nn_size[j+1], nn_size[j])) - weight_genes)
+            baby.NN.layers[j].biases = np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes)
         new_gen.append(baby)
-
 
     return new_gen
 
@@ -327,17 +297,12 @@ while True:
     pressed_keys = pygame.key.get_pressed()
     if pressed_keys[K_SPACE]:
         population = give_birth(selection(population))
-        displaysurface.fill(green)
-        displaysurface.blit(race_track,(0,0))
-        displaysurface.blit(entity.surf, entity.rect)
+        print(len(population))
         for entity in all_sprites:
             entity.kill()
         for i in range(population_n):
             all_sprites.add(population[i])
-        for entity in all_sprites:
-            displaysurface.blit(entity.surf, entity.rect)
-        
-        pygame.display.update()
+
         FramePerSec.tick(1)
 
 
