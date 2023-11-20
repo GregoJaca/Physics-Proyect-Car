@@ -280,6 +280,7 @@ def mutate(population):
         mut_ind = np.random.choice(population_n)
         mut_layer = np.random.choice( len(nn_size) )
 
+        # if we want to generalize to more NN layers, this if condition should change
         if np.random.binomial(1 , nn_size[1] / nn_size[0]) == 1:
             #mutate biases
             population[mut_ind].layers[mut_layer].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
@@ -306,7 +307,7 @@ def genetic_distance (population):
     max_gen_dist = np.max( gen_dist_matrix )
 
     # gen_dist_matrix has 0 in its diagonal (distance with itself). 
-    # I exclude them, because I want to see the min with others
+    # I exclude them, because I want to see the min dist with others
     gen_dist_matrix_no_zero = np.where( gen_dist_matrix == 0, np.inf, gen_dist_matrix ) 
     min_gen_dist = np.max( gen_dist_matrix_no_zero )
 
