@@ -291,7 +291,7 @@ def mutate(population):
 
 
 
-# returns a tuple. (min_gen_dist, max_gen_dist)x
+# returns a tuple. (min_gen_dist, max_gen_dist avg_gen_dist)
 def genetic_distance (population): 
     genes = []
 
@@ -306,7 +306,9 @@ def genetic_distance (population):
     gen_dist_matrix_no_zero = np.where( gen_dist_matrix == 0, np.inf, gen_dist_matrix ) 
     min_gen_dist = np.max( gen_dist_matrix_no_zero )
 
-    return (min_gen_dist, max_gen_dist)
+    avg_gen_dist = np.mean(gen_dist_matrix) *  population_n  / (population_n - 1) # I take the avg excluding the zeros
+
+    return (min_gen_dist, max_gen_dist, avg_gen_dist)
 
 #creating population #1 for testing
 for i in range(population_n):
