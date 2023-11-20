@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from scipy.spatial import distance_matrix
 import pygame
 from pygame.locals import *
 import sys
@@ -287,6 +288,25 @@ def mutate(population):
             population[mut_ind].layers[mut_layer].weights[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
             
     return population
+
+
+
+# returns a tuple. (min_gen_dist, max_gen_dist)x
+def genetic_distance (population): 
+    genes = []
+
+    for i in range(population_n):
+        genes.append( np.concatenate((population[i].layers.weights , population[i].layers.weights) , axis = 0) )
+
+    gen_dist_matrix = distance_matrix( genes, genes )
+    max_gen_dist = np.max( gen_dist_matrix )
+
+    # gen_dist_matrix has 0 in its diagonal (distance with itself). 
+    # I exclude them, because I want to see the min with others
+    gen_dist_matrix_no_zero = np.where( gen_dist_matrix == 0, np.inf, gen_dist_matrix ) 
+    min_gen_dist = np.max( gen_dist_matrix_no_zero )
+
+    return (min_gen_dist, max_gen_dist)
 
 #creating population #1 for testing
 for i in range(population_n):
