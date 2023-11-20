@@ -291,7 +291,11 @@ def mutate(population):
 
 
 
-# returns a tuple. (min_gen_dist, max_gen_dist avg_gen_dist)
+min_gen_dist_list = []
+max_gen_dist_list = []
+avg_gen_dist_list = []
+# returns a tuple. (min_gen_dist, max_gen_dist avg_gen_dist) . 
+# Either way I think it's better to store the values in the lists above.
 def genetic_distance (population): 
     genes = []
 
@@ -307,6 +311,11 @@ def genetic_distance (population):
     min_gen_dist = np.max( gen_dist_matrix_no_zero )
 
     avg_gen_dist = np.mean(gen_dist_matrix) *  population_n  / (population_n - 1) # I take the avg excluding the zeros
+
+    # Storing the values
+    min_gen_dist_list.append(min_gen_dist)
+    max_gen_dist_list.append(max_gen_dist)
+    avg_gen_dist_list.append(avg_gen_dist)
 
     return (min_gen_dist, max_gen_dist, avg_gen_dist)
 
@@ -358,6 +367,7 @@ while True:
     if pressed_keys[K_SPACE]:
         population = give_birth(selection(population))
         # population = mutate(population)
+        # genetic_distance(population)
         displaysurface.fill(green)
         displaysurface.blit(race_track,(0,0))
         displaysurface.blit(entity.surf, entity.rect)
