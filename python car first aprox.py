@@ -11,6 +11,8 @@ population_n = 100
 selection_n = 60 # min 50
 mutation_rate = 0.5
 
+gen_diversity_low_limit = 1 #no idea how much it should be
+
 population = []
 
 #________________PYGAME_VARS____________
@@ -44,10 +46,7 @@ for i in range(HEIGHT):
 velpen = 0.1 #if outside the road, it reduces the speed by 90%
 dt = 0.1
 car_size = 13
-#how far away it can see
-
-
-sightdist = 20
+sightdist = 20 #how far away it can see. // I'm not sure but I think that the furthest it can see is sightdist * sightnum
 sightnum = 5
 #number of eyes. minumum 3
 numeyes = 5
@@ -213,7 +212,7 @@ class FCL:
         self.weights = np.random.rand(out_size,in_size)*2-1
         self.biases = np.random.rand(out_size)*2-1
 
-#GENETIC_ALGORITHM_FUNCTIONS_________________________________________________________________________-
+#GENETIC_ALGORITHM_FUNCTIONS_________________________________________________________________________
 
 #list of cars as the parameter
 def selection(population):
@@ -253,72 +252,65 @@ def give_birth(parents): #I had to name it this
             # Mutating. We either use this or the mutate() function
             # this has the limitation that it can only modify one "gene" of each individual
             # using the mutate() function, the same individual could be picked many times and get many genes modified
+            
+            # if we want to generalize to more NN layers, should this if condition change ? 
             if np.random.rand() < mutation_rate:
-                a = np.random.binomial(1 , nn_size[j+1] / nn_size[j])
-                if a == 1:
-                    #only one biases is changed
+                if np.random.rand() < (nn_size[j+1] / nn_size[j]):
                     baby.NN.layers[j].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
-                    #all biases are changed
-                    #baby.layers[j].biases = np.random.rand(nn_size[j+1])
                 else:
-                    #only one weight is changed
                     baby.NN.layers[j].weights[ np.random.choice(nn_size[j]) ] = np.random.rand() * 2 - 1
-                    #all weights are changed
-                    #baby.layers[j].weights = np.random.rand(nn_size[j])
-        
+
         new_gen.append(baby) 
-        
     return new_gen
 
 
+# is made for one layer
 def mutate(population):
 
-    mut_number_avg = 50 #this should be a Global variable. I just wrote it here to be clear. Then I'll move it.
-    mut_number = np.random.binomial(mut_number_avg * 2 , 0.5)
+    mut_num_weights_avg = 40 
+    mut_num_biases_avg = 10 #these 2 should be a Global variable. Wrote it here to be clear. Then I'll move it.
 
-    for i in range(mut_number):
-        mut_ind = np.random.choice(population_n)
-        mut_layer = np.random.choice( len(nn_size) )
+    # Prof wanted to use a binomial distribution for the number of mutations each gen. I think it's unnecessary
+    mut_num_weights = np.random.binomial(mut_num_weights_avg * 2 , 0.5)
+    mut_num_biases  = np.random.binomial(mut_num_biases_avg  * 2 , 0.5)
 
-        # if we want to generalize to more NN layers, this if condition should change
-        if np.random.binomial(1 , nn_size[1] / nn_size[0]) == 1:
-            #mutate biases
-            population[mut_ind].layers[mut_layer].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
-        else: 
-            #mutate weights
-            population[mut_ind].layers[mut_layer].weights[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
-            
+    # if we want to generalize to more NN layers, the nn_size[x] condition should change
+    mut_individuals_weights = np.random.rand( population_n * nn_size[0] , mut_num_weights , replace = False )
+    mut_individuals_biases  = np.random.rand( population_n * nn_size[1] , mut_num_biases  , replace = False )
+
+    # Prof told me to do it this way. He told me that I could index into population[] and weights[] and biases[] using the randomly generated arrays
+    # That way it wouldn't need a loop and be faster. I couldn't do it, so I used loops.
+    for i in range(mut_num_weights):
+        population[mut_individuals_weights[i] // nn_size[0]].NN.layers[np.random.choice( len(nn_size) -1 )].weights[ mut_individuals_weights[i] % nn_size[0] ] = np.random.rand() * 2 - 1
+    
+    for i in range(mut_num_biases):
+        population[mut_individuals_biases[i]  // nn_size[1]].NN.layers[np.random.choice( len(nn_size) -1 )].biases [ mut_individuals_biases[i]  % nn_size[0] ] = np.random.rand() * 2 - 1
+
     return population
 
 
-
-min_gen_dist_list = []
 max_gen_dist_list = []
-avg_gen_dist_list = []
-# returns a tuple. (min_gen_dist, max_gen_dist avg_gen_dist) . 
-# Either way I think it's better to store the values in the lists above.
-def genetic_distance (population): 
+def max_genetic_distance (population): 
     genes = []
-
     for i in range(population_n):
-        genes.append( np.concatenate((population[i].layers.weights , population[i].layers.weights) , axis = 0) )
+        genes.append( np.concatenate((population[i].NN.layers.weights , population[i].NN.layers.weights) , axis = 0) )
 
-    gen_dist_matrix = distance_matrix( genes, genes )
-    max_gen_dist = np.max( gen_dist_matrix )
-
-    # gen_dist_matrix has 0 in its diagonal (distance with itself). 
-    # I exclude them, because I want to see the min dist with others
-    gen_dist_matrix_no_zero = np.where( gen_dist_matrix == 0, np.inf, gen_dist_matrix ) 
-    min_gen_dist = np.max( gen_dist_matrix_no_zero )
-
-    avg_gen_dist = np.mean(gen_dist_matrix) *  population_n  / (population_n - 1) # I take the avg excluding the zeros
-
-    # Storing the values
-    min_gen_dist_list.append(min_gen_dist)
+    max_gen_dist = np.max( distance_matrix( genes, genes ) )
     max_gen_dist_list.append(max_gen_dist)
-    avg_gen_dist_list.append(avg_gen_dist)
 
-    return (min_gen_dist, max_gen_dist, avg_gen_dist)
+    return max_gen_dist
+
+
+def max_gen_dist_derivative (n):
+    # checks that list is big enough. It's just for safety, but we should take it out in the end.
+    if len(max_gen_dist_list) < n and n <= 2:
+        return ( gen_diversity_low_limit + 1 , 1 ) #returns values that won't stop the simulation
+        
+    first_deriv = (max_gen_dist_list[-1] - max_gen_dist_list[-n]) / n
+    second_deriv = ( (max_gen_dist_list[-n + 1] - max_gen_dist_list[-n]) - (max_gen_dist_list[-1] - max_gen_dist_list[-2]) ) / (n-1)
+    return ( first_deriv , second_deriv )
+
+
 
 #creating population #1 for testing
 for i in range(population_n):
@@ -341,7 +333,12 @@ for i in range(population_n):
     
 
 
-#main loop
+# Check this parameters to know if we should quit the simulation. Initial values won't stop the simulation.
+gen_diversity_1deriv = gen_diversity_low_limit + 1
+gen_diversity_2deriv = 1
+generation_n = 1
+
+#---------------main loop-------------------------
 while True:
 
     #exit
@@ -377,6 +374,21 @@ while True:
         for i in range(population_n):
             all_sprites.add(population[i])
 
+        generation_n += 1
+        
+        if generation_n > 10:
+            gen_diversity_1deriv , gen_diversity_2deriv = max_gen_dist_derivative(5) # the argument must be bigger than 2
+
         FramePerSec.tick(1)
+
+    # basically checks if gene diversity is low and decreasing
+    # I'm not completely sure about the decreasing thing, because eventually it will reach a point where
+    # due to mutations it will be constant. so maybe the 3 condition is unnecessary
+    if generation_n > 10 and gen_diversity_1deriv < gen_diversity_low_limit and gen_diversity_2deriv < 0:
+        pygame.quit()
+        sys.exit()
+
+
+
 
 
