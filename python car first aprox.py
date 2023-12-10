@@ -9,7 +9,7 @@ from PIL import Image
 #________________GLOBAL_VAR_____________
 population_n = 100
 selection_n = 60 # min 50
-mutation_rate = 0.5
+mutation_rate = 0.9 # between 0 and 1
 
 gen_diversity_low_limit = 1 #no idea how much it should be
 
@@ -43,14 +43,15 @@ for i in range(HEIGHT):
 
 # parameters
 
-velpen = 0.1 #if outside the road, it reduces the speed by 90%
-dt = 0.1
+velpen = 0.8 #if outside the road, it reduces the speed by 20% every time
+dt = 0.2
 car_size = 13
-sightdist = 20 #how far away it can see. // I'm not sure but I think that the furthest it can see is sightdist * sightnum
+sightdist = 5 #how far away it can see. // I'm not sure but I think that the furthest it can see is sightdist * sightnum
 sightnum = 5
 #number of eyes. minumum 3
 numeyes = 5
 nn_size = [numeyes*sightnum,2]
+layers_n = len(nn_size)
 
 #max speed
 max_speed = 10
@@ -59,9 +60,10 @@ acc_multiplier = 5
 
 
 #parameters for Fitness
-maxcount = 100 #how many steps before calculating dist traveled
-weightdist = 1 #how important is dist traveled for fitness
-weightroad = -25 #how important is being on road for fitness
+maxcount = 150 #how many steps before calculating dist traveled
+weightdist = 20 #how important is dist traveled for fitness
+weightroad = -20 #how important is being on road for fitness
+weighcrash = -10
 
 # initial conditions
 posi =  np.array([125,465] )
@@ -159,6 +161,10 @@ class Car(pygame.sprite.Sprite):
 
         if self.onRoad() != 1:
             self.fitness += weightroad
+
+        # if self.is_crashing(population):
+        # self.fitness += weighcrash
+
     #as input it gets which eye is looking, and returns an array with the values of the road in that direction
     #when you call the function you should call it in a loop for i in range(numeyes)
     def see(self): 
@@ -182,6 +188,16 @@ class Car(pygame.sprite.Sprite):
 # this should return the same value as the value of the road at that point (a 0 (or false) if outside the road and viceversa)
     def onRoad(self):
         return road[ round(self.pos[0]) , round(self.pos[1]) ] #pos can be a float, but to check we round
+    
+    # Because they all start at the same position and there are SO many cars, it's a bit weird.
+    # We can use it if we have only few cars learning how to drive without crashing into each other
+    def is_crashing(self, population): 
+        for i in range(population_n):
+            if ( (np.all(population[i].pos != self.pos) ) and (np.linalg.norm(population[i].pos - self.pos) <  car_size)):
+                return True
+            
+        return False
+
     
 
 #Neural Network Class
@@ -214,6 +230,7 @@ class FCL:
 
 #GENETIC_ALGORITHM_FUNCTIONS_________________________________________________________________________
 
+avg_fitness = []
 #list of cars as the parameter
 def selection(population):
 
@@ -224,10 +241,13 @@ def selection(population):
         fitness_arr[i] = population[i].fitness
         if fitness_arr[i] < 0:
             fitness_arr[i] = 0
-        print(fitness_arr[i])
+        # print(fitness_arr[i])
+    avg_fitness.append( sum(fitness_arr) / population_n )
 
-    random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
-    
+    if sum(fitness_arr) != 0:
+        random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
+    else: 
+        random_choices = np.random.choice(population_n,selection_n,True)
     for i in range(population_n*2):
         parents.append(population[random_choices[i % selection_n]])
 
@@ -237,7 +257,7 @@ def selection(population):
 def give_birth(parents): #I had to name it this
 
     new_gen = []
-    layers_n = len(nn_size)
+    
 
     
     #baby creation
@@ -256,15 +276,16 @@ def give_birth(parents): #I had to name it this
             # if we want to generalize to more NN layers, should this if condition change ? 
             if np.random.rand() < mutation_rate:
                 if np.random.rand() < (nn_size[j+1] / nn_size[j]):
-                    baby.NN.layers[j].biases[ np.random.choice(nn_size[j+1]) ] = np.random.rand() * 2 - 1
+                    baby.NN.layers[j].biases[np.random.choice(nn_size[j+1])] = np.random.rand() * 2 - 1
                 else:
-                    baby.NN.layers[j].weights[ np.random.choice(nn_size[j]) ] = np.random.rand() * 2 - 1
+                    baby.NN.layers[j].weights[np.random.choice(nn_size[j+1])][np.random.choice(nn_size[j])] = np.random.rand() * 2 - 1
 
         new_gen.append(baby) 
     return new_gen
 
 
 # is made for one layer
+# isn't finished
 def mutate(population):
 
     mut_num_weights_avg = 40 
@@ -293,7 +314,18 @@ max_gen_dist_list = []
 def max_genetic_distance (population): 
     genes = []
     for i in range(population_n):
-        genes.append( np.concatenate((population[i].NN.layers.weights , population[i].NN.layers.weights) , axis = 0) )
+
+        # This is for a general NN of any size
+
+        # for j in range(layers_n-1):
+        #     ind_genome = population[i].NN.layers[j].biases
+        #     for k in range(layers_n):
+        #         ind_genome = np.concatenate((ind_genome , population[i].NN.layers[j].weights[k]) , axis = 0)
+        
+        # This is simplified for 1 layer.
+        ind_genome = np.concatenate((population[i].NN.layers[0].biases , population[i].NN.layers[0].weights[0], population[i].NN.layers[0].weights[1]) , axis = 0)
+        
+        genes.append(ind_genome)
 
     max_gen_dist = np.max( distance_matrix( genes, genes ) )
     max_gen_dist_list.append(max_gen_dist)
@@ -305,7 +337,7 @@ def max_gen_dist_derivative (n):
     # checks that list is big enough. It's just for safety, but we should take it out in the end.
     if len(max_gen_dist_list) < n and n <= 2:
         return ( gen_diversity_low_limit + 1 , 1 ) #returns values that won't stop the simulation
-        
+
     first_deriv = (max_gen_dist_list[-1] - max_gen_dist_list[-n]) / n
     second_deriv = ( (max_gen_dist_list[-n + 1] - max_gen_dist_list[-n]) - (max_gen_dist_list[-1] - max_gen_dist_list[-2]) ) / (n-1)
     return ( first_deriv , second_deriv )
@@ -330,7 +362,6 @@ all_sprites = pygame.sprite.Group()
 for i in range(population_n):
     population[i] = Car()
     all_sprites.add(population[i])
-    
 
 
 # Check this parameters to know if we should quit the simulation. Initial values won't stop the simulation.
@@ -362,10 +393,12 @@ while True:
 
     #when space pressed create new generation
     pressed_keys = pygame.key.get_pressed()
+
+
     if pressed_keys[K_SPACE]:
         population = give_birth(selection(population))
         # population = mutate(population)
-        # genetic_distance(population)
+        max_genetic_distance(population)
         displaysurface.fill(green)
         displaysurface.blit(race_track,(0,0))
         displaysurface.blit(entity.surf, entity.rect)
@@ -373,21 +406,25 @@ while True:
             entity.kill()
         for i in range(population_n):
             all_sprites.add(population[i])
-
-        generation_n += 1
-        
-        if generation_n > 10:
-            gen_diversity_1deriv , gen_diversity_2deriv = max_gen_dist_derivative(5) # the argument must be bigger than 2
-
         FramePerSec.tick(1)
 
-    # basically checks if gene diversity is low and decreasing
-    # I'm not completely sure about the decreasing thing, because eventually it will reach a point where
-    # due to mutations it will be constant. so maybe the 3 condition is unnecessary
-    if generation_n > 10 and gen_diversity_1deriv < gen_diversity_low_limit and gen_diversity_2deriv < 0:
-        pygame.quit()
-        sys.exit()
+        if generation_n > 20:
+            gen_diversity_1deriv , gen_diversity_2deriv = max_gen_dist_derivative(5) # the argument must be bigger than 2
+        
+        generation_n += 1
+        
+        
 
+        # basically checks if gene diversity is low and decreasing
+        # I'm not completely sure about the decreasing thing, because eventually it will reach a point where
+        # due to mutations it will be constant. so maybe the last condition is unnecessary
+        if generation_n > 20 and gen_diversity_1deriv < gen_diversity_low_limit and gen_diversity_2deriv < 0:
+            pygame.quit()
+            print("Finished because of low genetic diversity after ", generation_n, "generations")
+            print("Gen div 1st deriv: ", gen_diversity_1deriv)
+            sys.exit()
+
+    
 
 
 
