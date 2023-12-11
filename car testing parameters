@@ -1,6 +1,5 @@
-# You don't need to press space, after some time, it automatically creates a new generation.
-
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 from scipy.spatial import distance_matrix
 import pygame
@@ -10,7 +9,7 @@ from PIL import Image
 
 #________________GLOBAL_VAR_____________
 population_n = 100
-selection_n = 80 # min 50
+selection_n = 60 # min 50
 mutation_rate = 0.95 # between 0 and 1
 
 gen_diversity_low_limit = 1 #no idea how much it should be
@@ -45,10 +44,10 @@ for i in range(HEIGHT):
 
 # parameters
 
-velpen = 0.5 #if outside the road, it reduces the speed by a % every time
-dt = 0.25
+velpen = 0.8 #if outside the road, it reduces the speed by a % every time
+dt = 0.15
 car_size = 13
-sightdist = 5 #how far away it can see. // I'm not sure but I think that the furthest it can see is sightdist * sightnum
+sightdist = 10 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
 sightnum = 5
 #number of eyes. minumum 3
 numeyes = 5
@@ -56,16 +55,16 @@ nn_size = [numeyes*sightnum,2]
 layers_n = len(nn_size)
 
 #max speed
-max_speed = 20
-max_truning_speed = 0.1
+max_speed = 25
+max_truning_speed = 0.2
 acc_multiplier = 5
 
 
 #parameters for Fitness
-maxcount = 140 #how many steps before calculating dist traveled
-weightdist = 30 #how important is dist traveled for fitness
-weightroad = -1 #how important is being on road for fitness
-weighcrash = -1 #not using it yet
+maxcount = 50 #how many steps before calculating dist traveled
+weightdist = 1 #how important is dist traveled for fitness
+weightroad = -7 #how important is being on road for fitness
+weighcrash = -1
 
 # initial conditions
 posi =  np.array([125,465] )
@@ -97,6 +96,7 @@ class Car(pygame.sprite.Sprite):
         self.fitness = 0
         self.savedpos = posi
         self.savedpos2 = posi
+        self.savedpos3 = posi
 
         #cars NN
         self.NN = NN(nn_size)
@@ -129,7 +129,6 @@ class Car(pygame.sprite.Sprite):
         #angle should stay between 0-2pi
         if self.angle >= np.pi*2:
             self.angle -= np.pi*2
-        
         if self.angle < 0:
             self.angle += np.pi*2
 
@@ -138,12 +137,12 @@ class Car(pygame.sprite.Sprite):
 
         if speed > max_speed:
             speed = max_speed
-        
-        self.vel =  speed * np.array( [math.sin(self.angle), math.cos(self.angle)] )
 
         #Here if that wheel is outside the road, we make the vel smaller as punishment
         if self.onRoad() != 1:
-            self.vel *= velpen
+            speed *= velpen
+        
+        self.vel =  speed * np.array( [math.sin(self.angle), math.cos(self.angle)] )
 
         # euler for position
         self.pos = self.pos + self.vel * dt
@@ -157,14 +156,20 @@ class Car(pygame.sprite.Sprite):
         #calc fitness should be called together with actualize
         #every maxcount steps it calculates how much distance it traveled and saves a new position as starting point
         if self.count == maxcount * 2:
-            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos) - maxcount / 8
+            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos)
             self.savedpos = self.pos
-            self.count = 0
-        self.count += 1
-
-        if self.count == maxcount or self.count == maxcount * 2:
-            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos2 ) / 4 - maxcount / 8
+            
+        
+        if self.count == maxcount or self.count == maxcount * 2 or self.count == maxcount * 4:
+            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos2 ) / 4
             self.savedpos2 = self.pos
+
+        if self.count == maxcount * 4:
+            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos3) * 2
+            self.savedpos3 = self.pos
+            self.count = 0
+            
+        self.count += 1
 
         if self.onRoad() != 1:
             self.fitness += weightroad
@@ -262,12 +267,13 @@ def selection(population):
             fitness_arr[i] = 0
         # print(fitness_arr[i])
     avg_fitness.append( sum(fitness_arr) / population_n )
-    print( round(avg_fitness[-1]) )
+    # print( round(avg_fitness[-1]) )
 
     if sum(fitness_arr) != 0:
         random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
     else: 
         random_choices = np.random.choice(population_n,selection_n,True)
+
     for i in range(population_n*2):
         parents.append(population[random_choices[i % selection_n]])
 
@@ -281,24 +287,26 @@ def give_birth(parents): #I had to name it this
     #baby creation
     for i in range(population_n):
         baby = Car()
-        for j in range(layers_n-1):
-            weight_genes = np.random.randint(2,size = (nn_size[j+1],nn_size[j]))
-            bias_genes = np.random.randint(2,size = nn_size[j+1])
-            baby.NN.layers[j].weights = (np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones((nn_size[j+1], nn_size[j])) - weight_genes))
-            baby.NN.layers[j].biases = (np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes))
 
-            # Mutating. We either use this or the mutate() function
-            # this has the limitation that it can only modify one "gene" of each individual
-            # using the mutate() function, the same individual could be picked many times and get many genes modified
-            
-            # if we want to generalize to more NN layers, should this if condition change ? 
-            for _ in range(5):
+        if i < population_n - selection_n:
+            for j in range(layers_n-1):
+                weight_genes = np.random.randint(2,size = (nn_size[j+1],nn_size[j]))
+                bias_genes = np.random.randint(2,size = nn_size[j+1])
+                baby.NN.layers[j].weights = (np.multiply(parents[i*2].NN.layers[j].weights, weight_genes) + np.multiply(parents[i*2+1].NN.layers[j].weights, np.ones((nn_size[j+1], nn_size[j])) - weight_genes))
+                baby.NN.layers[j].biases = (np.multiply(parents[i*2].NN.layers[j].biases,bias_genes) + np.multiply(parents[i*2+1].NN.layers[j].biases, np.ones(nn_size[j+1]) - bias_genes))
+
+                # Mutating. We either use this or the mutate() function
+                # this has the limitation that it can only modify one "gene" of each individual
+                # using the mutate() function, the same individual could be picked many times and get many genes modified
+                
+                # if we want to generalize to more NN layers, should this if condition change ? 
                 if np.random.rand() < mutation_rate:
                     if np.random.rand() < (nn_size[j+1] / nn_size[j]):
                         baby.NN.layers[j].biases[np.random.choice(nn_size[j+1])] = np.random.rand() * 2 - 1
                     else:
                         baby.NN.layers[j].weights[np.random.choice(nn_size[j+1])][np.random.choice(nn_size[j])] = np.random.rand() * 2 - 1
-
+        else:
+            baby.NN.layers = parents[i - (population_n - selection_n)].NN.layers
         new_gen.append(baby) 
     return new_gen
 
@@ -395,6 +403,13 @@ while True:
     #exit
     for event in pygame.event.get():
         if event.type == QUIT:
+            
+            generations = np.linspace(1, len(avg_fitness),  len(avg_fitness))
+            plt.plot(generations, avg_fitness, '-')
+            plt.xlabel('Generations')
+            plt.ylabel('Fitness')
+            plt.show()
+
             pygame.quit()
             sys.exit()
 
@@ -414,11 +429,11 @@ while True:
     pressed_keys = pygame.key.get_pressed()
 
     count += 1
-    if (pressed_keys[K_SPACE]) or (count == 1200):
+    if (pressed_keys[K_SPACE]) or (count == 1000 + generation_n * 20):
         
         population = give_birth(selection(population))
         # population = mutate(population)
-        max_genetic_distance(population)
+        # max_genetic_distance(population)
         displaysurface.fill(green)
         displaysurface.blit(race_track,(0,0))
         displaysurface.blit(entity.surf, entity.rect)
@@ -430,8 +445,8 @@ while True:
 
         # if generation_n > 20:
         #     gen_diversity_1deriv , gen_diversity_2deriv = max_gen_dist_derivative(5) # the argument must be bigger than 2
-        # generation_n += 1
-
+        
+        generation_n += 1
         count = 0
         
         # basically checks if gene diversity is low and decreasing
@@ -445,3 +460,7 @@ while True:
         #     sys.exit()
 
     
+
+
+
+
