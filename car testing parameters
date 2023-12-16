@@ -9,10 +9,9 @@ from PIL import Image
 
 #________________GLOBAL_VAR_____________
 population_n = 100
-selection_n = 75 # min 50
-mutation_rate = 0.98 # between 0 and 1
-
-gen_diversity_low_limit = 1 #no idea how much it should be
+selection_n = 50 # min 50
+mutation_rate = 0.99 # between 0 and 1
+mutation_n = 3 #how many mutations each new individual has
 
 population = []
 
@@ -30,11 +29,12 @@ race_track = pygame.image.load("map1.jpg")
 
 # -----------------ROAD------------------
 road_im = np.array(Image.open("map1.jpg"))
-road = np.empty((HEIGHT, WIDTH))
 
-for i in range(HEIGHT):
-    for j in range(WIDTH):
-        if road_im[i,j,0] == 150 and road_im[i,j,1] == 150 and road_im[i,j,2] == 150:
+road = np.empty((WIDTH, HEIGHT))
+for i in range(WIDTH):
+    for j in range(HEIGHT):
+        # road_im is indexed [j,i], while road is indexed [i,j], they are transposed
+        if road_im[j,i,0] == 150 and road_im[j,i,1] == 150 and road_im[j,i,2] == 150:
           road[i][j] = 1
         else:
             road[i][j] = -1
@@ -43,32 +43,31 @@ for i in range(HEIGHT):
 # -----------------------CAR-------------------
 
 # parameters
+            
+#max speed
+max_speed = 50
+max_truning_speed = 1
+acc_multiplier = 5
 
-velpen = 0.75 #if outside the road, it reduces the speed by a % every time
-dt = 0.15
+velpen = 0.92 #if outside the road, it reduces the speed by a % every time
+dt = 0.1
 car_size = 13
-sightdist = 7 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
-sightnum = 5
+sightdist = max_speed * dt #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
+sightnum = 10
 #number of eyes. minumum 3
 numeyes = 5
 nn_size = [numeyes*sightnum,2]
 layers_n = len(nn_size)
 
-#max speed
-max_speed = 25
-max_truning_speed = 0.3
-acc_multiplier = 5
-
-
 #parameters for Fitness
-maxcount = 100 #how many steps before calculating dist traveled
-weightdist = 0.001 #how important is dist traveled for fitness
-weightroad = -15 #how important is being on road for fitness
+maxcount = 30 #how many steps before calculating dist traveled
+weightdist = 0.11 #how important is dist traveled for fitness
+weightroad = 1 #how important is being on road for fitness
 weighcrash = -1
 
 # initial conditions
 posi =  np.array([125,465] )
-# posi =  np.array([945,415] )
+posi =  np.array([945,415] )
 veli =  np.array([0,0] )
 anglei = 0
 
@@ -98,6 +97,7 @@ class Car(pygame.sprite.Sprite):
         self.savedpos = posi
         self.savedpos2 = posi
         self.savedpos3 = posi
+        self.savedpos4 = posi
 
         #cars NN
         self.NN = NN(nn_size)
@@ -130,7 +130,7 @@ class Car(pygame.sprite.Sprite):
         #angle should stay between 0-2pi
         if self.angle >= np.pi*2:
             self.angle -= np.pi*2
-        if self.angle < 0:
+        elif self.angle < 0:
             self.angle += np.pi*2
 
         #vel of the car is the average of both wheels velocity (and multiplied by the unit vector with the angle of the car)
@@ -159,22 +159,26 @@ class Car(pygame.sprite.Sprite):
 
         # I wrote this 3 diferent if conditions because I thought maybe by calculating the distance traveled using diferent times would
         # prevent cyclical behaviour like going in circles. Maybe it's unnecessary.
-        if self.count == maxcount * 2:
-            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos)
+        if self.count % maxcount == 0:
+            self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos) / 10
             self.savedpos = self.pos
             
-        if self.count == maxcount or self.count == maxcount * 2 or self.count == maxcount * 4:
-            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos2 ) / 4
+        if self.count % (maxcount*3) == 0:
+            self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos2) / 2
             self.savedpos2 = self.pos
 
-        if self.count == maxcount * 4:
-            self.fitness += weightdist * np.linalg.norm( self.pos - self.savedpos3) * 2
+        if self.count % (maxcount*6) == 0:
+            self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos3) * 10
             self.savedpos3 = self.pos
+        
+        if self.count == maxcount*12:
+            self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos4) * 30
+            self.savedpos4 = self.pos
             self.count = 0
             
         self.count += 1
 
-        if self.onRoad() != 1:
+        if self.onRoad() == 1:
             self.fitness += weightroad
 
         # if self.is_crashing(population):
@@ -198,21 +202,21 @@ class Car(pygame.sprite.Sprite):
                 index_0 = round( self.pos[0] + math.cos(direction) * sightdist * j)
                 index_1 = round( self.pos[1] +  math.sin(direction) * sightdist * j)
                 # Preventing out of index error
-                if abs(index_0) < HEIGHT and abs(index_1) < WIDTH:
+                if index_0 >= 0 and index_0 < WIDTH and index_1 >= 0 and index_1 < HEIGHT:
                     view[i*sightnum+j] = road[ index_0 , index_1 ]
                 else:
                     view[i*sightnum+j] = -1 #if it's waaay out the screen
 
         return view
 
-        
+
 
 # this should return the same value as the value of the road at that point (a -1 (or false) if outside the road and viceversa)
     def onRoad(self):
         index_0 = round(self.pos[0])
         index_1 = round(self.pos[1])   
         # Preventing out of index error
-        if abs(index_0) < HEIGHT and abs(index_1) < WIDTH:
+        if index_0 >= 0 and index_0 < WIDTH and index_1 >= 0 and index_1 < HEIGHT:
             return road[ index_0 , index_1 ]
         else: 
             return -1 #if it's waaay out the screen
@@ -268,16 +272,18 @@ def selection(population):
     for i in range(population_n):
         fitness_arr[i] = population[i].fitness
 
-    min_fit = min(fitness_arr)
-    if min_fit < 0:
-        fitness_arr = [x - min_fit for x in fitness_arr] # I did this because sometimes I had problems when too many fitnesses were negative and thus made to be 0.
+    # min_fit = min(fitness_arr)
+    # if min_fit < 0:
+    #     fitness_arr = [x - min_fit for x in fitness_arr] # I did this because sometimes I had problems when too many fitnesses were negative and thus made to be 0.
 
     avg_fitness.append( sum(fitness_arr) / population_n )
+
+    random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
  
-    if sum(fitness_arr) != 0:
-        random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
-    else: 
-        random_choices = np.random.choice(population_n,selection_n,True)
+    # if sum(fitness_arr) != 0:
+    #     random_choices = np.random.choice(population_n,selection_n,True,fitness_arr/sum(fitness_arr))
+    # else: 
+    #     random_choices = np.random.choice(population_n,selection_n,True)
 
     for i in range(population_n*2):
         parents.append(population[random_choices[i % selection_n]])
@@ -305,12 +311,12 @@ def give_birth(parents): #I had to name it this
                 # using the mutate() function, the same individual could be picked many times and get many genes modified
                 
                 # if we want to generalize to more NN layers, should this if condition change ? 
-                for _ in range(3):
-                    if np.random.rand() < mutation_rate:
-                        if np.random.rand() < (nn_size[j+1] / nn_size[j]):
-                            baby.NN.layers[j].biases[np.random.choice(nn_size[j+1])] = np.random.rand() * 2 - 1
-                        else:
-                            baby.NN.layers[j].weights[np.random.choice(nn_size[j+1])][np.random.choice(nn_size[j])] = np.random.rand() * 2 - 1
+                
+                for _ in range(mutation_n):
+                    if np.random.rand() < (nn_size[j+1] / nn_size[j]):
+                        baby.NN.layers[j].biases[np.random.choice(nn_size[j+1])] = np.random.rand() * 2 - 1
+                    else:
+                        baby.NN.layers[j].weights[np.random.choice(nn_size[j+1])][np.random.choice(nn_size[j])] = np.random.rand() * 2 - 1
         else:
             # The selected parents are kept to the next gen.
             baby.NN.layers = parents[i - (population_n - selection_n)].NN.layers
@@ -319,62 +325,6 @@ def give_birth(parents): #I had to name it this
     return new_gen
 
 
-# is made for one layer
-# isn't finished
-def mutate(population):
-
-    mut_num_weights_avg = 40 
-    mut_num_biases_avg = 10 #these 2 should be a Global variable. Wrote it here to be clear. Then I'll move it.
-
-    # Prof wanted to use a binomial distribution for the number of mutations each gen. I think it's unnecessary
-    mut_num_weights = np.random.binomial(mut_num_weights_avg * 2 , 0.5)
-    mut_num_biases  = np.random.binomial(mut_num_biases_avg  * 2 , 0.5)
-
-    # if we want to generalize to more NN layers, the nn_size[x] condition should change
-    mut_individuals_weights = np.random.rand( population_n * nn_size[0] , mut_num_weights , replace = False )
-    mut_individuals_biases  = np.random.rand( population_n * nn_size[1] , mut_num_biases  , replace = False )
-
-    # Prof told me to do it this way. He told me that I could index into population[] and weights[] and biases[] using the randomly generated arrays
-    # That way it wouldn't need a loop and be faster. I couldn't do it, so I used loops.
-    for i in range(mut_num_weights):
-        population[mut_individuals_weights[i] // nn_size[0]].NN.layers[np.random.choice( len(nn_size) -1 )].weights[ mut_individuals_weights[i] % nn_size[0] ] = np.random.rand() * 2 - 1
-    
-    for i in range(mut_num_biases):
-        population[mut_individuals_biases[i]  // nn_size[1]].NN.layers[np.random.choice( len(nn_size) -1 )].biases [ mut_individuals_biases[i]  % nn_size[0] ] = np.random.rand() * 2 - 1
-
-    return population
-
-
-max_gen_dist_list = []
-def max_genetic_distance (population): 
-    genes = []
-    for i in range(population_n):
-        # This is for a general NN of any size.
-
-        # for j in range(layers_n-1):
-        #     ind_genome = population[i].NN.layers[j].biases
-        #     for k in range(layers_n):
-        #         ind_genome = np.concatenate((ind_genome , population[i].NN.layers[j].weights[k]) , axis = 0)
-        
-        # This is simplified for 1 layer.
-        ind_genome = np.concatenate((population[i].NN.layers[0].biases , population[i].NN.layers[0].weights[0], population[i].NN.layers[0].weights[1]) , axis = 0)
-        
-        genes.append(ind_genome)
-
-    max_gen_dist = np.max( distance_matrix( genes, genes ) )
-    max_gen_dist_list.append(max_gen_dist)
-
-    return max_gen_dist
-
-
-def max_gen_dist_derivative (n):
-    # checks that list is big enough. It's just for safety, but we should take it out in the end.
-    if len(max_gen_dist_list) < n and n <= 2:
-        return ( gen_diversity_low_limit + 1 , 1 ) #returns values that won't stop the simulation
-
-    first_deriv = (max_gen_dist_list[-1] - max_gen_dist_list[-n]) / n
-    second_deriv = ( (max_gen_dist_list[-n + 1] - max_gen_dist_list[-n]) - (max_gen_dist_list[-1] - max_gen_dist_list[-2]) ) / (n-1)
-    return ( first_deriv , second_deriv )
 
 
 
@@ -384,8 +334,6 @@ for i in range(population_n):
 
 
 # Check this parameters to know if we should quit the simulation. Initial values won't stop the simulation.
-gen_diversity_1deriv = gen_diversity_low_limit + 1
-gen_diversity_2deriv = 1
 generation_n = 1
 count = 0
 
@@ -398,17 +346,12 @@ pygame.display.set_caption("Game")
 
 all_sprites = pygame.sprite.Group()
 
-# Text that says which generation the simulation is in.
-font = pygame.font.Font('freesansbold.ttf', 12)
-gen_str = "Generation: " + str(generation_n)
-text = font.render(gen_str, True, black, white)
-textRect = text.get_rect()
-textRect.center = (1055,635)
-
 #creating population #1 for testing
 for i in range(population_n):
     population[i] = Car()
     all_sprites.add(population[i])
+
+
 
 
 #---------------main loop-------------------------
@@ -429,8 +372,7 @@ while True:
 
     displaysurface.fill(green)
     displaysurface.blit(race_track,(0,0))
-    displaysurface.blit(text, textRect)
-
+    
     for i in range(population_n):
         population[i].actualize()
         population[i].calcFitness()
@@ -440,41 +382,22 @@ while True:
     pygame.display.update()
     FramePerSec.tick(FPS)
 
-
-    #when space pressed create new generation
-    pressed_keys = pygame.key.get_pressed()
-
     count += 1
-    if (pressed_keys[K_SPACE]) or (count == 300 + generation_n * 15) or count == 1200:
+    if (count == (210 + generation_n * 15) or count == 2000):
         
         population = give_birth(selection(population))
-        # population = mutate(population)
-       # max_genetic_distance(population)
         displaysurface.fill(green)
         displaysurface.blit(race_track,(0,0))
-        displaysurface.blit(entity.surf, entity.rect)
+        
         for entity in all_sprites:
             entity.kill()
         for i in range(population_n):
             all_sprites.add(population[i])
         FramePerSec.tick(1)
 
-        # if generation_n > 20:
-        #     gen_diversity_1deriv , gen_diversity_2deriv = max_gen_dist_derivative(5) # the argument must be bigger than 2
-        
         generation_n += 1
         count = 0
-        gen_str = "Generation: " + str(generation_n)
-        text = font.render(gen_str, True, black, white)
-        
-        # basically checks if gene diversity is low and decreasing
-        # I'm not completely sure about the decreasing thing, because eventually it will reach a point where
-        # due to mutations it will be constant. so maybe the last condition is unnecessary
 
-        # if generation_n > 30 and gen_diversity_1deriv < gen_diversity_low_limit and gen_diversity_2deriv < -0.2:
-        #     pygame.quit()
-        #     print("Finished because of low genetic diversity after ", generation_n, "generations")
-        #     print("Gen div 1st deriv: ", gen_diversity_1deriv)
-        #     sys.exit()
 
-    
+
+# make sightdist = maxvel * dt
