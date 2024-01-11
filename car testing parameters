@@ -6,10 +6,11 @@ import pygame
 from pygame.locals import *
 import sys
 from PIL import Image
+import heapq
 
 #________________GLOBAL_VAR_____________
 population_n = 100
-selection_n = 50 # min 50
+selection_n = 70 # min 50
 mutation_rate = 0.99 # between 0 and 1
 mutation_n = 3 #how many mutations each new individual has
 
@@ -45,23 +46,23 @@ for i in range(WIDTH):
 # parameters
             
 #max speed
-max_speed = 50
-max_truning_speed = 1
+max_speed = 30
+max_truning_speed = 0.5
 acc_multiplier = 5
 
-velpen = 0.9 #if outside the road, it reduces the speed by a % every time
+velpen = 0.3 #if outside the road, it reduces the speed by a % every time
 dt = 0.1
 car_size = 13
-sightdist = max_speed * dt * 2 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
-sightnum = 4
+sightdist = max_speed * dt * 1.5 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
+sightnum = 5
 #number of eyes. minumum 3
-numeyes = 5
+numeyes = 3
 nn_size = [numeyes*sightnum,2]
 layers_n = len(nn_size)
 
 #parameters for Fitness
 maxcount = 30 #how many steps before calculating dist traveled
-weightdist = 0.11 #how important is dist traveled for fitness
+weightdist = 0.05 #how important is dist traveled for fitness
 weightroad = 1 #how important is being on road for fitness
 weighcrash = -1
 
@@ -113,10 +114,10 @@ class Car(pygame.sprite.Sprite):
         #wheelacc should be calculated by the neural network
         self.wheelvel = self.wheelvel + self.wheelacc * dt
 
-        if self.wheelvel[0] < 0:
-            self.wheelvel[0] = 0
-        if self.wheelvel[1] < 0:
-            self.wheelvel[1] = 0
+        # if self.wheelvel[0] < 0:
+        #     self.wheelvel[0] = 0
+        # if self.wheelvel[1] < 0:
+        #     self.wheelvel[1] = 0
 
         #euler for angle
         self.w = -(self.wheelvel[0] - self.wheelvel[1]) / car_size
@@ -161,15 +162,15 @@ class Car(pygame.sprite.Sprite):
 
         # I wrote this 3 diferent if conditions because I thought maybe by calculating the distance traveled using diferent times would
         # prevent cyclical behaviour like going in circles. Maybe it's unnecessary.
-        """ if self.count % maxcount == 0:
+        if self.count % maxcount == 0:
             self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos) / 10
             self.savedpos = self.pos
             
         if self.count % (maxcount*3) == 0:
             self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos2) / 2
             self.savedpos2 = self.pos
- """
-        if self.count % (maxcount*6) == 0:
+
+        if self.count % (maxcount*5) == 0:
             self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos3) * 10
             self.savedpos3 = self.pos
         
@@ -268,11 +269,11 @@ avg_fitness = []
 #list of cars as the parameter
 def selection(population):
 
-    fitness_arr = np.zeros(population_n)
+    fitness_arr = []
     parents = []
 
     for i in range(population_n):
-        fitness_arr[i] = population[i].fitness
+        fitness_arr.append(population[i].fitness)
 
     # min_fit = min(fitness_arr)
     # if min_fit < 0:
@@ -290,18 +291,22 @@ def selection(population):
     for i in range(population_n*2):
         parents.append(population[random_choices[i % selection_n]])
 
-    return parents
+    best_parents = []
+    best_parents_index = [fitness_arr.index(i) for i in heapq.nlargest(population_n-selection_n+1, fitness_arr)]
+    for i in best_parents_index:
+        best_parents.append(population[i])
+
+    return parents, best_parents
 
 
-def give_birth(parents): #I had to name it this
-
+def give_birth(selected): #I had to name it this
+    parents, best_parents = selected #just unpacking
     new_gen = []
-    
     #baby creation
     for i in range(population_n):
         baby = Car()
 
-        if i < population_n - selection_n:
+        if i < selection_n:
             for j in range(layers_n-1):
                 weight_genes = np.random.randint(2,size = (nn_size[j+1],nn_size[j]))
                 bias_genes = np.random.randint(2,size = nn_size[j+1])
@@ -321,7 +326,14 @@ def give_birth(parents): #I had to name it this
                         baby.NN.layers[j].weights[np.random.choice(nn_size[j+1])][np.random.choice(nn_size[j])] = np.random.rand() * 2 - 1
         else:
             # The selected parents are kept to the next gen.
-            baby.NN.layers = parents[i - (population_n - selection_n)].NN.layers
+            
+            baby.NN.layers = best_parents[i - (selection_n)].NN.layers
+
+            for _ in range(mutation_n):
+                if np.random.rand() < (nn_size[j+1] / nn_size[j]):
+                    baby.NN.layers[j].biases[np.random.choice(nn_size[j+1])] = np.random.rand() * 2 - 1
+                else:
+                    baby.NN.layers[j].weights[np.random.choice(nn_size[j+1])][np.random.choice(nn_size[j])] = np.random.rand() * 2 - 1
 
         new_gen.append(baby) 
     return new_gen
