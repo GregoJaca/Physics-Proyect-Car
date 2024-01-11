@@ -49,11 +49,11 @@ max_speed = 50
 max_truning_speed = 1
 acc_multiplier = 5
 
-velpen = 0.92 #if outside the road, it reduces the speed by a % every time
+velpen = 0.9 #if outside the road, it reduces the speed by a % every time
 dt = 0.1
 car_size = 13
-sightdist = max_speed * dt #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
-sightnum = 10
+sightdist = max_speed * dt * 2 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
+sightnum = 4
 #number of eyes. minumum 3
 numeyes = 5
 nn_size = [numeyes*sightnum,2]
@@ -119,7 +119,7 @@ class Car(pygame.sprite.Sprite):
             self.wheelvel[1] = 0
 
         #euler for angle
-        self.w = (self.wheelvel[0] - self.wheelvel[1]) / car_size
+        self.w = -(self.wheelvel[0] - self.wheelvel[1]) / car_size
         if self.w > max_truning_speed:
             self.w = max_truning_speed
         if self.w < -max_truning_speed:
@@ -143,7 +143,9 @@ class Car(pygame.sprite.Sprite):
         if self.onRoad() != 1:
             speed *= velpen
         
+        
         self.vel =  speed * np.array( [math.sin(self.angle), math.cos(self.angle)] )
+        
 
         # euler for position
         self.pos = self.pos + self.vel * dt
@@ -159,14 +161,14 @@ class Car(pygame.sprite.Sprite):
 
         # I wrote this 3 diferent if conditions because I thought maybe by calculating the distance traveled using diferent times would
         # prevent cyclical behaviour like going in circles. Maybe it's unnecessary.
-        if self.count % maxcount == 0:
+        """ if self.count % maxcount == 0:
             self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos) / 10
             self.savedpos = self.pos
             
         if self.count % (maxcount*3) == 0:
             self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos2) / 2
             self.savedpos2 = self.pos
-
+ """
         if self.count % (maxcount*6) == 0:
             self.fitness += weightdist * np.linalg.norm(self.pos - self.savedpos3) * 10
             self.savedpos3 = self.pos
@@ -199,8 +201,8 @@ class Car(pygame.sprite.Sprite):
                 direction += np.pi*2
     
             for j in range(sightnum):
-                index_0 = round( self.pos[0] + math.cos(direction) * sightdist * j)
-                index_1 = round( self.pos[1] +  math.sin(direction) * sightdist * j)
+                index_0 = round( self.pos[0] + math.sin(direction) * sightdist * (j+1))
+                index_1 = round( self.pos[1] +  math.cos(direction) * sightdist * (j+1))
                 # Preventing out of index error
                 if index_0 >= 0 and index_0 < WIDTH and index_1 >= 0 and index_1 < HEIGHT:
                     view[i*sightnum+j] = road[ index_0 , index_1 ]
