@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-# from scipy.spatial import distance_matrix
+from scipy.spatial import distance_matrix
 import pygame
 from pygame.locals import *
 import sys
@@ -12,9 +12,10 @@ import heapq
 population_n = 100
 selection_n = 60 # min 50
 copied_parents = math.ceil((population_n-selection_n)/2)
-mutation_rate = 0.99 # between 0 and 1
 mutation_n = 2 #how many mutations each new individual has
 total_laps = 0
+generation_n = 1
+count = 0
 
 population = []
 
@@ -56,17 +57,12 @@ acc_multiplier = 5
 velpen = 0.98 #if outside the road, it reduces the speed by a % every time
 dt = 0.1
 car_size = 13
-sightdist = car_size / 1.1 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
-sightnum = 8
+sightdist = car_size * 1.9 #how far away it can see. // I'm not sure, but I think that the furthest it can see is sightdist * sightnum
+sightnum = 5
 #number of eyes. minumum 3
 numeyes = 5
 nn_size = [numeyes*sightnum,2]
 layers_n = len(nn_size)
-
-#parameters for Fitness
-maxcount = 150 #how many steps before calculating dist traveled
-weightdist = 0.6 #how important is dist traveled for fitness. XX is the ratio between fitness due to distance and fitness due to checlpoint
-# weightroad = 0.01 #how important is being on road for fitness
 
 # initial conditions
 # posi =  np.array([125,465] )
@@ -74,7 +70,7 @@ posi =  np.array([945,415] )
 veli =  np.array([0,0] )
 anglei = np.deg2rad(-60)
 
-check_point_radius = 60
+check_point_radius = 70
 checkpoints = np.array([np.array([945,415]),np.array([845,460]),np.array([710,450]),np.array([560,390]),np.array([405,425]),np.array([225,420]),np.array([195,225]),np.array([320,140]),np.array([505,105]),np.array([670,120]),np.array([850,190]),np.array([990,310])])
 checkpoints_num = len(checkpoints)
 checkpoint_dists = np.zeros(checkpoints_num)
@@ -107,18 +103,9 @@ class Car(pygame.sprite.Sprite):
         self.wheelvel = np.array([10,10])
         self.wheelacc = np.array([0,0])
         #for fitness
-        self.count = 0
         self.fitness = 0
-        self.fitness2 = 0
         self.checkpoint = 1
-
         self.laps = 0
-
-
-        self.savedpos = posi
-        # self.savedpos2 = posi
-        # self.savedpos3 = posi
-        # self.savedpos4 = posi
 
         #cars NN
         self.NN = NN(nn_size)
@@ -183,15 +170,7 @@ class Car(pygame.sprite.Sprite):
         self.rect.center = self.pos
 
     def calcFitness(self):
-
         global total_laps
-
-        if self.count == maxcount:
-            self.fitness2 += weightdist * np.linalg.norm(self.pos - self.savedpos)
-            self.savedpos = self.pos
-            self.count = 0
-        
-        self.count += 1
 
         distance_from_next = np.linalg.norm(self.pos - checkpoints[self.checkpoint])
         if distance_from_next <= check_point_radius:
@@ -203,11 +182,10 @@ class Car(pygame.sprite.Sprite):
             # print("how many counts it took to do one lap: ", count)
             total_laps = total_laps + 1
         
-        self.fitness = self.laps * checkpoint_rewards[checkpoints_num-1] * 1.2 + checkpoint_rewards[self.checkpoint] - (distance_from_next * 0.09)
-        # print(self.fitness)
-        # print(self.fitness2)
-        # print("-")
-        self.fitness += self.fitness2
+        self.fitness = self.laps * checkpoint_rewards[checkpoints_num-1] + checkpoint_rewards[self.checkpoint] - (distance_from_next)
+
+        if self.fitness < 0:
+            self.fitness = 0
 
     #as input it gets which eye is looking, and returns an array with the values of the road in that direction
     #when you call the function you should call it in a loop for i in range(numeyes)
@@ -282,26 +260,13 @@ avg_fitness = []
 def selection(population):
 
     fitness_arr = []
-    # fitness_arr2 = []
     parents = []
     best_parents = []
 
-
-
     for i in range(population_n):
         fitness_arr.append(population[i].fitness)
-        # fitness_arr2.append(population[i].fitness2)
 
-    # print(sum(fitness_arr2))
-    # print(sum(fitness_arr))
-    # print("-")
-
-    min_fit = min(fitness_arr)
-
-    if min_fit < 0:
-        fitness_arr = [x - min_fit for x in fitness_arr] # I did this because sometimes I had problems when too many fitnesses were negative and thus made to be 0.
-
-    avg_fitness.append( sum(fitness_arr) / population_n )
+    avg_fitness.append( sum(fitness_arr) / population_n / count)
 
     for i in range(population_n):
         fitness_arr[i] = (fitness_arr[i]/10)**3
@@ -311,7 +276,6 @@ def selection(population):
     for i in range(selection_n*2):
         parents.append(population[random_choices[i % selection_n]])
 
-    
     best_parents_index = [fitness_arr.index(i) for i in heapq.nlargest(copied_parents, fitness_arr)]
     for i in best_parents_index:
         best_parents.append(population[i])
@@ -356,17 +320,16 @@ def give_birth(selected): #I had to name it this
     return new_gen
 
 
+max_gen_dist_list = []
+def max_genetic_distance (population): 
+    genes = []
+    for i in range(population_n):
+        ind_genome = np.concatenate((population[i].NN.layers[0].biases , population[i].NN.layers[0].weights[0], population[i].NN.layers[0].weights[1]) , axis = 0)
+        genes.append(ind_genome)
 
+    max_gen_dist = np.max( distance_matrix( genes, genes ) )
+    max_gen_dist_list.append(max_gen_dist)
 
-
-#creating population #1 for testing
-for i in range(population_n):
-    population.append(Car())
-
-
-# Check this parameters to know if we should quit the simulation. Initial values won't stop the simulation.
-generation_n = 1
-count = 0
 
 #pygame initialization
 pygame.init()
@@ -379,11 +342,9 @@ all_sprites = pygame.sprite.Group()
 
 #creating population #1 for testing
 for i in range(population_n):
-    population[i] = Car()
+    population.append(Car())
     all_sprites.add(population[i])
 
-
-# generation_laps = []
 
 #---------------main loop-------------------------
 while True:
@@ -393,15 +354,18 @@ while True:
         if event.type == QUIT:
             
             generations = np.linspace(1, len(avg_fitness),  len(avg_fitness))
-            plt.plot(generations, avg_fitness, '-')
-            plt.xlabel('Generations')
-            plt.ylabel('Fitness')
-            plt.show()
 
-            # plt.plot(generations, generation_laps, '-')
-            # plt.xlabel('Generations')
-            # plt.ylabel('Laps')
-            # plt.show()
+            fig, ax1 = plt.subplots()
+            ax2 = ax1.twinx()
+            color = 'tab:blue'
+            ax1.plot(generations, avg_fitness, '-', color = color)
+            ax1.set_xlabel('Generations')
+            ax1.set_ylabel('Fitness', color = color)
+
+            color = 'tab:orange'
+            ax2.plot(generations, max_gen_dist_list, '-', color = color)
+            ax2.set_ylabel('Max Genetic Distance', color = color)
+            plt.show()
 
             pygame.quit()
             sys.exit()
@@ -419,17 +383,14 @@ while True:
     FramePerSec.tick(FPS)
 
     count += 1
-    if (count == (150 + generation_n * 35) or count == 16000):
+    if (count == (300 + generation_n * 150) or count == 16000):
 
         print(generation_n)
-
-        # generation_laps.append(total_laps)
         print(total_laps)
         total_laps = 0
         
+        max_genetic_distance(population)
         population = give_birth(selection(population))
-        displaysurface.fill(green)
-        displaysurface.blit(race_track,(0,0))
         
         for entity in all_sprites:
             entity.kill()
